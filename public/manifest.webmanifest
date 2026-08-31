@@ -1,0 +1,10 @@
+{
+  "name": "My Riyaz — Tanpura & Metronome",
+  "short_name": "My Riyaz",
+  "description": "A calm tanpura drone and metronome for daily riyaz.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f6efe2",
+  "theme_color": "#f6efe2",
+  "icons": []
+}
