@@ -19,7 +19,7 @@ type MetronomeSettings = {
 };
 
 const DEFAULT_SETTINGS: MetronomeSettings = {
-  bpm: 80,
+  bpm: 100,
   timeSignatureId: DEFAULT_TIME_SIGNATURE_ID,
   volume: 0.6,
 };

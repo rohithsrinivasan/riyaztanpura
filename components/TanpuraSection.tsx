@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePersistentState } from "@/lib/useLocalStorage";
-import { getPitchById, DEFAULT_PITCH_ID } from "@/lib/pitches";
+import { getPitchById, getAdjacentPitchId, DEFAULT_PITCH_ID } from "@/lib/pitches";
 import { rampVolume } from "@/lib/rampVolume";
 import TanpuraIllustration from "./TanpuraIllustration";
 import PitchSelector from "./PitchSelector";
@@ -194,7 +194,31 @@ export default function TanpuraSection() {
         <span className="text-xs font-medium uppercase tracking-[0.14em] text-ink-soft">
           Pitch
         </span>
-        <span className="font-serif text-2xl text-wood-dark">{pitch.label}</span>
+        <div className="flex items-center gap-5">
+          <button
+            type="button"
+            aria-label="Previous pitch"
+            onClick={() =>
+              handlePitchChange(getAdjacentPitchId(settings.pitchId, -1))
+            }
+            className="flex h-10 w-10 items-center justify-center rounded-full text-wood-dark transition-colors hover:bg-sand/60 active:scale-95"
+          >
+            <ChevronIcon direction="left" />
+          </button>
+          <span className="w-12 text-center font-serif text-3xl text-wood-dark">
+            {pitch.label}
+          </span>
+          <button
+            type="button"
+            aria-label="Next pitch"
+            onClick={() =>
+              handlePitchChange(getAdjacentPitchId(settings.pitchId, 1))
+            }
+            className="flex h-10 w-10 items-center justify-center rounded-full text-wood-dark transition-colors hover:bg-sand/60 active:scale-95"
+          >
+            <ChevronIcon direction="right" />
+          </button>
+        </div>
       </div>
 
       <PitchSelector value={settings.pitchId} onChange={handlePitchChange} />
@@ -220,5 +244,19 @@ export default function TanpuraSection() {
         </p>
       )}
     </section>
+  );
+}
+
+function ChevronIcon({ direction }: { direction: "left" | "right" }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d={direction === "left" ? "M15 5l-7 7 7 7" : "M9 5l7 7-7 7"}
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }

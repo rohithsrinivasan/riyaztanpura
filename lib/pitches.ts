@@ -19,8 +19,15 @@ export const PITCHES: Pitch[] = [
   { id: "B", label: "B", file: "/audio/B.webm" },
 ];
 
-export const DEFAULT_PITCH_ID = "C";
+export const DEFAULT_PITCH_ID = "D";
 
 export function getPitchById(id: string): Pitch {
   return PITCHES.find((p) => p.id === id) ?? PITCHES[0];
+}
+
+export function getAdjacentPitchId(id: string, direction: -1 | 1): string {
+  const index = PITCHES.findIndex((p) => p.id === id);
+  const safeIndex = index === -1 ? 0 : index;
+  const nextIndex = (safeIndex + direction + PITCHES.length) % PITCHES.length;
+  return PITCHES[nextIndex].id;
 }
