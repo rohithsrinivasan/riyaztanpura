@@ -45,11 +45,6 @@ next-env.d.ts
 
 # Add to .gitignore if not already present
 /out/
-/android/app/build/
-/android/build/
-/android/.gradle/
-/android/local.properties
-/android/app/release/
 *.apk
 *.aab
 node_modules/
