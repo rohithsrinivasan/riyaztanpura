@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePersistentState } from "@/lib/useLocalStorage";
+import { useAudioPlaybackService } from "@/lib/useAudioPlaybackService";
 import { MetronomeEngine } from "@/lib/metronomeEngine";
 import {
   TIME_SIGNATURES,
@@ -41,6 +42,8 @@ export default function MetronomeSection() {
   const engineRef = useRef<MetronomeEngine | null>(null);
   const holdTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const holdIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const { startPlayback, stopPlayback } = useAudioPlaybackService();
 
   const timeSignature = getTimeSignatureById(settings.timeSignatureId);
 
@@ -121,6 +124,15 @@ export default function MetronomeSection() {
   );
 
   useEffect(() => clearHold, [clearHold]);
+
+  // Foreground service for background audio on Android.
+  useEffect(() => {
+    if (isPlaying) {
+      startPlayback();
+    } else {
+      stopPlayback();
+    }
+  }, [isPlaying, startPlayback, stopPlayback]);
 
   return (
     <section

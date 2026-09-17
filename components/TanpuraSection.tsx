@@ -2,19 +2,28 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePersistentState } from "@/lib/useLocalStorage";
+import { useAudioPlaybackService } from "@/lib/useAudioPlaybackService";
 import { getPitchById, getAdjacentPitchId, DEFAULT_PITCH_ID } from "@/lib/pitches";
+import {
+  getDeviceById,
+  getAdjacentDeviceId,
+  DEFAULT_DEVICE_ID,
+  type DeviceId,
+} from "@/lib/devices";
 import { rampVolume } from "@/lib/rampVolume";
-import TanpuraIllustration from "./TanpuraIllustration";
+import DeviceIllustration from "./DeviceIllustration";
 import PitchSelector from "./PitchSelector";
 import VolumeSlider from "./VolumeSlider";
 import PlayPauseButton from "./PlayPauseButton";
 
 type TanpuraSettings = {
+  deviceId: DeviceId;
   pitchId: string;
   volume: number;
 };
 
 const DEFAULT_SETTINGS: TanpuraSettings = {
+  deviceId: DEFAULT_DEVICE_ID,
   pitchId: DEFAULT_PITCH_ID,
   volume: 0.7,
 };
@@ -34,6 +43,8 @@ export default function TanpuraSection() {
   const loadedFileRef = useRef<string | null>(null);
   const switchTokenRef = useRef(0);
 
+  const { startPlayback, stopPlayback } = useAudioPlaybackService();
+
   // Create the single audio element once, lazily on the client.
   useEffect(() => {
     const audio = new Audio();
@@ -51,7 +62,7 @@ export default function TanpuraSection() {
       setIsLoading(false);
       setIsPlaying(false);
       setError(
-        "Tanpura audio couldn't be loaded. Please check your connection and try again."
+        "Audio couldn't be loaded. Please check your connection and try again."
       );
     };
 
@@ -84,7 +95,8 @@ export default function TanpuraSection() {
     const audio = audioRef.current;
     if (!audio) return;
     setError(null);
-    ensureSourceLoaded(getPitchById(settings.pitchId).file);
+    const device = getDeviceById(settings.deviceId);
+    ensureSourceLoaded(device.audioFile(settings.pitchId));
     try {
       setIsLoading(true);
       await audio.play();
@@ -94,10 +106,10 @@ export default function TanpuraSection() {
     } catch {
       setIsLoading(false);
       setError(
-        "Tanpura audio couldn't be loaded. Please check your connection and try again."
+        `${device.label} audio couldn't be loaded. Please check your connection and try again.`
       );
     }
-  }, [ensureSourceLoaded, settings.pitchId, settings.volume]);
+  }, [ensureSourceLoaded, settings.deviceId, settings.pitchId, settings.volume]);
 
   const pause = useCallback(() => {
     audioRef.current?.pause();
@@ -109,14 +121,21 @@ export default function TanpuraSection() {
     else play();
   }, [isPlaying, pause, play]);
 
-  // Switch pitch. If currently playing, crossfade to the new source without
-  // requiring the user to press stop/play again.
-  const handlePitchChange = useCallback(
-    async (pitchId: string) => {
-      if (pitchId === settings.pitchId) return;
-      const file = getPitchById(pitchId).file;
+  // Switch device and/or pitch. If currently playing, crossfade to the new
+  // source without requiring the user to press stop/play again.
+  const switchAudio = useCallback(
+    async (nextDeviceId: DeviceId, nextPitchId: string) => {
+      if (nextDeviceId === settings.deviceId && nextPitchId === settings.pitchId) {
+        return;
+      }
+      const device = getDeviceById(nextDeviceId);
+      const file = device.audioFile(nextPitchId);
       const audio = audioRef.current;
-      setSettings((prev) => ({ ...prev, pitchId }));
+      setSettings((prev) => ({
+        ...prev,
+        deviceId: nextDeviceId,
+        pitchId: nextPitchId,
+      }));
 
       if (!audio) return;
       const token = ++switchTokenRef.current;
@@ -139,14 +158,24 @@ export default function TanpuraSection() {
           setIsLoading(false);
           setIsPlaying(false);
           setError(
-            "Tanpura audio couldn't be loaded. Please check your connection and try again."
+            `${device.label} audio couldn't be loaded. Please check your connection and try again.`
           );
         }
       } else {
         loadedFileRef.current = null; // load on next play
       }
     },
-    [isPlaying, settings.pitchId, settings.volume, setSettings]
+    [isPlaying, settings.deviceId, settings.pitchId, settings.volume, setSettings]
+  );
+
+  const handlePitchChange = useCallback(
+    (pitchId: string) => switchAudio(settings.deviceId, pitchId),
+    [switchAudio, settings.deviceId]
+  );
+
+  const handleDeviceChange = useCallback(
+    (deviceId: DeviceId) => switchAudio(deviceId, settings.pitchId),
+    [switchAudio, settings.pitchId]
   );
 
   const handleVolumeChange = useCallback(
@@ -160,9 +189,10 @@ export default function TanpuraSection() {
   // Media Session integration for lock-screen / hardware controls.
   useEffect(() => {
     if (!("mediaSession" in navigator)) return;
+    const device = getDeviceById(settings.deviceId);
     const pitch = getPitchById(settings.pitchId);
     navigator.mediaSession.metadata = new MediaMetadata({
-      title: `Tanpura — ${pitch.label}`,
+      title: `${device.label} — ${pitch.label}`,
       artist: "My Riyaz",
     });
     navigator.mediaSession.playbackState = isPlaying ? "playing" : "paused";
@@ -172,22 +202,56 @@ export default function TanpuraSection() {
       navigator.mediaSession.setActionHandler("play", null);
       navigator.mediaSession.setActionHandler("pause", null);
     };
-  }, [settings.pitchId, isPlaying, play, pause]);
+  }, [settings.deviceId, settings.pitchId, isPlaying, play, pause]);
 
+  // Foreground service for background audio on Android.
+  useEffect(() => {
+    if (isPlaying) {
+      startPlayback();
+    } else {
+      stopPlayback();
+    }
+  }, [isPlaying, startPlayback, stopPlayback]);
+
+  const device = getDeviceById(settings.deviceId);
   const pitch = getPitchById(settings.pitchId);
 
   return (
     <section
-      aria-labelledby="tanpura-heading"
+      aria-labelledby="device-heading"
       className="flex w-full flex-col items-center gap-5 rounded-3xl bg-cream-soft/70 p-6 shadow-[0_2px_20px_rgba(93,59,37,0.08)] sm:p-8"
     >
-      <TanpuraIllustration isPlaying={isPlaying} />
+      <div className="flex items-center gap-3 sm:gap-6">
+        <button
+          type="button"
+          aria-label="Previous device"
+          onClick={() =>
+            handleDeviceChange(getAdjacentDeviceId(settings.deviceId, -1))
+          }
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-wood-dark transition-colors hover:bg-sand/60 active:scale-95"
+        >
+          <ChevronIcon direction="left" />
+        </button>
+
+        <DeviceIllustration deviceId={settings.deviceId} isPlaying={isPlaying} />
+
+        <button
+          type="button"
+          aria-label="Next device"
+          onClick={() =>
+            handleDeviceChange(getAdjacentDeviceId(settings.deviceId, 1))
+          }
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-wood-dark transition-colors hover:bg-sand/60 active:scale-95"
+        >
+          <ChevronIcon direction="right" />
+        </button>
+      </div>
 
       <h2
-        id="tanpura-heading"
+        id="device-heading"
         className="font-serif text-xl tracking-wide text-ink"
       >
-        Tanpura
+        {device.label}
       </h2>
 
       <div className="flex w-full flex-col items-center gap-2">
@@ -225,7 +289,7 @@ export default function TanpuraSection() {
 
       <div className="w-full max-w-xs">
         <VolumeSlider
-          label="Tanpura"
+          label={device.label}
           value={settings.volume}
           onChange={handleVolumeChange}
         />
@@ -235,7 +299,7 @@ export default function TanpuraSection() {
         isPlaying={isPlaying}
         isLoading={isLoading}
         onToggle={togglePlay}
-        label="tanpura"
+        label={device.label.toLowerCase()}
       />
 
       {error && (

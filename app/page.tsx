@@ -1,5 +1,6 @@
 import TanpuraSection from "@/components/TanpuraSection";
 import MetronomeSection from "@/components/MetronomeSection";
+import BatteryOptimizationPrompt from "@/components/BatteryOptimizationPrompt";
 
 export default function Home() {
   return (
@@ -8,6 +9,8 @@ export default function Home() {
         <h1 className="font-serif text-2xl italic tracking-wide text-ink">
           My Riyaz
         </h1>
+
+        <BatteryOptimizationPrompt />
 
         <TanpuraSection />
         <MetronomeSection />
